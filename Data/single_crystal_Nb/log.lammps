@@ -1,0 +1,319 @@
+LAMMPS (2 Aug 2023 - Update 3)
+OMP_NUM_THREADS environment is not set. Defaulting to 1 thread. (../comm.cpp:98)
+  using 1 OpenMP thread(s) per MPI task
+package gpu 1
+#1.模型设置
+# x [-1 1 3] y [1 1 0] z [3 -3 2]
+# Nb: 3.300803 Cu:3.615000
+units           metal
+atom_style      atomic
+boundary        p p p
+neighbor        1.0 bin
+neigh_modify    every 1 delay 0 check yes
+timestep        0.001
+shell mkdir deform
+# 单晶Ni的建模
+lattice		bcc 3.300803
+Lattice spacing in x,y,z = 3.300803 3.300803 3.300803
+region		box block 0 100 0 50 0 3 units lattice
+# 创建box的时候设置三种原子, 以用于区分牛顿层, 恒温层还有固定层
+# 此外由于本in文件使用eam势函数, 所以不管在create_box命令中定义
+# 多少种原子类型, 其实它们均是Ni原子
+create_box	1 box
+Created orthogonal box = (0 0 0) to (330.0803 165.04015 9.902409)
+  2 by 1 by 1 MPI processor grid
+create_atoms	1 box
+Created 30000 atoms
+  using lattice units in orthogonal box = (0 0 0) to (330.0803 165.04015 9.902409)
+  create_atoms CPU = 0.002 seconds
+# 定义势函数
+pair_style eam/alloy
+pair_coeff * * CuNb_eam1.eam.alloy Nb
+# 创建中心裂纹
+region crack block $(lx/2-35) $(lx/2+35) $(ly/2-2) $(ly/2+2) INF INF  units box
+region crack block 130.04015000000001123 $(lx/2+35) $(ly/2-2) $(ly/2+2) INF INF  units box
+region crack block 130.04015000000001123 200.04015000000001123 $(ly/2-2) $(ly/2+2) INF INF  units box
+region crack block 130.04015000000001123 200.04015000000001123 80.520075000000005616 $(ly/2+2) INF INF  units box
+region crack block 130.04015000000001123 200.04015000000001123 80.520075000000005616 84.520075000000005616 INF INF  units box
+# 创建边缘裂纹
+# region up plane 790 0 $(lz/2) 1 0 -10  units box        # 裂纹距离界面大概5nm
+# region down plane 790 0 $(lz/2) 1 0 10 units box
+# region crack intersect 2 up down
+# 裂纹距离界面的长度大约为70埃米。
+# 删除裂纹
+delete_atoms region crack
+Deleted 195 atoms, new total = 29805
+# 导出模型
+write_data watch.lmp
+System init for write_data ...
+# 首先进行能量最小化
+thermo 100
+thermo_style custom step cpu temp etotal pxx pyy pzz
+min_style cg
+minimize 1e-10 1e-10 5000 5000
+
+CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE
+
+Your simulation uses code contributions which should be cited:
+
+- GPU package (short-range, long-range and three-body potentials): doi:10.1016/j.cpc.2010.12.021, doi:10.1016/j.cpc.2011.10.012, doi:10.1016/j.cpc.2013.08.002, doi:10.1016/j.commatsci.2014.10.068, doi:10.1016/j.cpc.2016.10.020, doi:10.3233/APC200086
+
+@Article{Brown11,
+ author = {W. M. Brown and P. Wang and S. J. Plimpton and A. N. Tharrington},
+ title = {Implementing Molecular Dynamics on Hybrid High Performance Computers---Short Range Forces},
+ journal = {Comput.\ Phys.\ Commun.},
+ year =    2011,
+ volume =  182,
+ pages =   {898--911},
+ doi =     {10.1016/j.cpc.2010.12.021}
+}
+
+@Article{Brown12,
+ author = {W. M. Brown and A. Kohlmeyer and S. J. Plimpton and A. N. Tharrington},
+ title = {Implementing Molecular Dynamics on Hybrid High Performance Computers - Particle-Particle Particle-Mesh},
+ journal = {Comput.\ Phys.\ Commun.},
+ year =    2012,
+ volume =  183,
+ doi =     {10.1016/j.cpc.2011.10.012},
+ pages =   {449--459}
+}
+
+@Article{Brown13,
+ author = {W. M. Brown and Y. Masako},
+ title = {Implementing Molecular Dynamics on Hybrid High Performance Computers---Three-Body Potentials},
+ journal = {Comput.\ Phys.\ Commun.},
+ year =    2013,
+ volume =  184,
+ pages =   {2785--2793},
+ doi =     {10.1016/j.cpc.2013.08.002},
+}
+
+@Article{Trung15,
+ author = {T. D. Nguyen and S. J. Plimpton},
+ title = {Accelerating Dissipative Particle Dynamics Simulations for Soft Matter Systems},
+ journal = {Comput.\ Mater.\ Sci.},
+ year =    2015,
+ doi =     {10.1016/j.commatsci.2014.10.068},
+ volume =  100,
+ pages =   {173--180}
+}
+
+@Article{Trung17,
+ author = {T. D. Nguyen},
+ title = {{GPU}-Accelerated {T}ersoff Potentials for Massively Parallel
+    Molecular Dynamics Simulations},
+ journal = {Comput.\ Phys.\ Commun.},
+ year =    2017,
+ doi =     {10.1016/j.cpc.2016.10.020},
+ volume =  212,
+ pages =   {113--122}
+}
+
+@inproceedings{Nikolskiy19,
+ author = {V. Nikolskiy and V. Stegailov},
+ title = {{GPU} Acceleration of Four-Site Water Models in {LAMMPS}},
+ booktitle = {Proceedings of the International Conference on Parallel
+    Computing (ParCo 2019), Prague, Czech Republic},
+ doi =     {10.3233/APC200086},
+ year =    2019
+}
+
+CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE
+
+Per MPI rank memory allocation (min/avg/max) = 12.82 | 12.82 | 12.82 Mbytes
+   Step          CPU            Temp          TotEng          Pxx            Pyy            Pzz      
+         0   0              0             -225501.28     -2778.8199     -2215.6686     -2815.9369    
+        70   0.17417321     0             -225508.87     -2362.8504     -1614.2767     -2336.4378    
+Loop time of 0.174208 on 2 procs for 70 steps with 29805 atoms
+
+97.8% CPU use with 2 MPI tasks x 1 OpenMP threads
+
+Minimization stats:
+  Stopping criterion = energy tolerance
+  Energy initial, next-to-last, final = 
+     -225501.276912794  -225508.873812944  -225508.873816743
+  Force two-norm initial, final = 9.5585621 0.041380468
+  Force max component initial, final = 0.66200262 0.0024764944
+  Final line search alpha, max atom move = 1 0.0024764944
+  Iterations, force evaluations = 70 140
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 0.10546    | 0.11384    | 0.12222    |   2.5 | 65.35
+Neigh   | 0          | 0          | 0          |   0.0 |  0.00
+Comm    | 0.021359   | 0.023977   | 0.026595   |   1.7 | 13.76
+Output  | 0          | 0          | 0          |   0.0 |  0.00
+Modify  | 1.0693e-05 | 1.3545e-05 | 1.6397e-05 |   0.0 |  0.01
+Other   |            | 0.03638    |            |       | 20.88
+
+Nlocal:        14902.5 ave       14904 max       14901 min
+Histogram: 1 0 0 0 0 0 0 0 0 1
+Nghost:        22109.5 ave       22111 max       22108 min
+Histogram: 1 0 0 0 0 0 0 0 0 1
+Neighs:              0 ave           0 max           0 min
+Histogram: 2 0 0 0 0 0 0 0 0 0
+
+Total # of neighbors = 0
+Ave neighs/atom = 0
+Neighbor list builds = 0
+Dangerous builds = 0
+reset_timestep  0
+write_data after_minimized.lmp
+System init for write_data ...
+# 重新定义热力学输出
+thermo 1000
+thermo_style custom step cpu temp etotal pxx pyy pzz
+# 接下来开始弛豫
+velocity all create 10.0 1616161 dist gaussian
+fix 1 all npt temp 10 10 0.1 aniso 0.0 0.0 1.0        # 采用npt控温控压
+run 10000                   # 弛豫100ps
+Per MPI rank memory allocation (min/avg/max) = 9.851 | 9.851 | 9.851 Mbytes
+   Step          CPU            Temp          TotEng          Pxx            Pyy            Pzz      
+         0   0              10            -225470.35     -2286.2231     -1538.5459     -2259.9588    
+      1000   1.593912       10.982863     -225433.93     -37.648882     -42.10038      -39.019217    
+      2000   3.442879       10.207709     -225433.82     -15.491609     -21.412145     -16.010599    
+      3000   5.0975659      10.02311      -225433.51     -35.962051     -27.50227      -36.177764    
+      4000   6.9393177      9.9919773     -225434        -187.21338     -150.58175     -183.62784    
+      5000   8.6544832      10.06489      -225433.38     -188.50539     -262.96268     -187.21477    
+      6000   10.320522      9.8404766     -225434.2      -65.709796     -68.200712     -67.817471    
+      7000   11.942513      9.971083      -225433.43     -75.431785     -50.098132     -73.65658     
+      8000   13.546957      9.9843065     -225433.93     -174.23478     -204.80091     -171.12695    
+      9000   15.159334      10.007858     -225433.74     -162.07757     -219.8866      -169.99849    
+     10000   16.805073      10.048483     -225433.91     -80.153218     -54.458528     -78.889466    
+Loop time of 16.8051 on 2 procs for 10000 steps with 29805 atoms
+
+Performance: 51.413 ns/day, 0.467 hours/ns, 595.057 timesteps/s, 17.736 Matom-step/s
+95.7% CPU use with 2 MPI tasks x 1 OpenMP threads
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 10.689     | 10.727     | 10.764     |   1.1 | 63.83
+Neigh   | 0          | 0          | 0          |   0.0 |  0.00
+Comm    | 1.5247     | 1.5331     | 1.5415     |   0.7 |  9.12
+Output  | 0.00092793 | 0.0011291  | 0.0013302  |   0.6 |  0.01
+Modify  | 3.9323     | 3.9555     | 3.9787     |   1.2 | 23.54
+Other   |            | 0.5885     |            |       |  3.50
+
+Nlocal:        14902.5 ave       14903 max       14902 min
+Histogram: 1 0 0 0 0 0 0 0 0 1
+Nghost:        22109.5 ave       22110 max       22109 min
+Histogram: 1 0 0 0 0 0 0 0 0 1
+Neighs:              0 ave           0 max           0 min
+Histogram: 2 0 0 0 0 0 0 0 0 0
+
+Total # of neighbors = 0
+Ave neighs/atom = 0
+Neighbor list builds = 0
+Dangerous builds = 0
+unfix  1
+reset_timestep  0
+#计算应力并输出云图
+compute s all stress/atom NULL
+compute pot all pe/atom
+variable ave_v equal vol/count(all)              # 每个原子的平均体积
+variable sx atom c_s[1]/10000/${ave_v}           # x方向的应力
+variable sx atom c_s[1]/10000/18.0802863737691           
+variable sy atom c_s[2]/10000/${ave_v}           # y方向的应力
+variable sy atom c_s[2]/10000/18.0802863737691           
+variable sz atom c_s[3]/10000/${ave_v}           # z方向的应力
+variable sz atom c_s[3]/10000/18.0802863737691           
+variable sxy atom c_s[4]/10000/${ave_v}          # x方向的应力
+variable sxy atom c_s[4]/10000/18.0802863737691          
+variable sxz atom c_s[5]/10000/${ave_v}          # y方向的应力
+variable sxz atom c_s[5]/10000/18.0802863737691          
+variable syz atom c_s[6]/10000/${ave_v}          # z方向的应力
+variable syz atom c_s[6]/10000/18.0802863737691          
+# 进行一些参数的计算
+variable srate equal 2e9            # 期望以s为单位的应变速率
+variable rrate equal v_srate/1e12   # 以ps为单位的应变速率
+# 重新定义热力学输出
+thermo 2000
+thermo_style custom step cpu temp etotal pxx pyy pzz
+# 弛豫完成之后开始拉伸
+fix 1 all npt temp 10 10 0.1 x 0.0 0.0 1.0 z 0.0 0.0 1.0             # 采用npt控温控压
+fix 2 all deform 1000 y erate ${rrate} remap x      # 采用deform拉伸
+fix 2 all deform 1000 y erate 0.002 remap x      
+dump 1 all custom/gz 5000 deform/Deform_*.gz id type x y z mass c_pot v_sx v_sy v_sz v_sxy v_sxz v_syz
+run 100000          # 运行10w步，获得20%的总应变
+Per MPI rank memory allocation (min/avg/max) = 12.47 | 12.48 | 12.48 Mbytes
+   Step          CPU            Temp          TotEng          Pxx            Pyy            Pzz      
+         0   0              10.048483     -225433.91     -80.151844     -54.456375     -78.888671    
+      2000   3.2643351      9.9415258     -225432.79     -39.133403     -2793.9191     -39.124886    
+      4000   6.9069334      10.04262      -225425.82     -14.311957     -7596.7316     -14.409395    
+      6000   10.611387      10.06051      -225410.85     -8.7119486     -12740.688     -8.8111976    
+      8000   14.300984      9.9587678     -225390.18     -6.2267847     -18420.197     -6.0870382    
+     10000   17.637244      10.029069     -225361.8      -4.4581199     -23413.388     -4.6052537    
+     12000   21.194608      10.057901     -225326.84     -3.3966248     -28201.493     -3.2722305    
+     14000   24.4575        10.027389     -225285.8      -2.3398798     -33252.194     -2.5618334    
+     16000   28.153099      10.054658     -225237.87     -1.8868607     -38389.869     -2.1224604    
+     18000   31.577388      10.039618     -225183.97     -1.6306384     -43178.987     -1.5729294    
+     20000   34.949175      9.9946785     -225124.03     -1.6625908     -47273.629     -1.3923836    
+     22000   38.557646      10.025645     -225058.43     -1.1747876     -51913.34      -1.1293583    
+     24000   41.935625      9.9652628     -224987.49     -1.0635863     -56424.708     -1.161982     
+     26000   45.705298      9.9808849     -224911.17     -0.73657638    -60215.379     -0.57892332   
+     28000   49.118112      10.06079      -224828.85     -0.64184286    -64249.562     -0.88483996   
+     30000   52.524053      9.9705141     -224742.08     -0.82007544    -68474.76      -0.94956237   
+     32000   56.219633      10.005624     -224651.19     -0.43500983    -72375.457     -0.58831267   
+     34000   59.634341      10.045993     -224554.24     -0.12664713    -75663.315      0.064221123  
+     36000   63.251451      10.005433     -224453.11     -0.63478092    -78886.891     -0.64924585   
+     38000   66.689221      10.389213     -224368.97     -0.10836365    -81051.464      1.5050089    
+     40000   70.133792      11.715087     -224340.13     -0.10761746    -80041.006      0.52607838   
+     42000   73.857015      11.26508      -224347.96     -2.4720501     -78964.639      1.7767832    
+     44000   77.316904      11.32149      -224365.19     -4.2022638     -78470.538     -0.53040591   
+     46000   81.009579      10.215667     -224363.8      -5.4117182     -77861.057      7.3667413    
+     48000   84.406594      11.213523     -224410.34     -0.28145819    -74372.643      0.16024248   
+     50000   87.797124      11.643656     -224454.54      0.35159532    -70208.853     -4.8155263    
+     52000   91.432805      12.245739     -224540.02      0.16277647    -65016.603     -0.72757209   
+     54000   94.821726      11.340468     -224646.37      2.0945963     -62094.356      0.34127309   
+     56000   98.42858       11.508688     -224736.46      0.85440737    -58471.26       0.0090941065 
+     58000   101.80457      10.6284       -224798.19     -5.3237326     -54643.229     -1.4060049    
+     60000   105.19329      10.685373     -224853.64     -4.0230336     -51988.094      0.23598402   
+     62000   108.76346      10.042012     -224884.54     -6.3213887     -50614.159     -0.35452715   
+     64000   112.09402      10.511988     -224892.16     -2.8727738     -51087.694      5.6071599    
+     66000   115.64142      9.821331      -224886.75     -3.6581355     -51526.651      1.5298816    
+     68000   118.94927      10.474011     -224875.2       0.82652505    -51840.795      1.5444174    
+     70000   122.28159      10.128199     -224889.68      5.2642367     -51914.736     -0.84541314   
+     72000   125.84341      10.149276     -224903.08     -5.1008423     -50321.354     -1.0696384    
+     74000   129.16454      10.233067     -224922.72     -1.4111173     -48353.924     -2.906284     
+     76000   132.861        10.453825     -224955.79     -5.7875793     -45936.229      1.2636317    
+     78000   136.22959      10.260879     -224996.25     -2.220569      -43770.045     -6.6438926    
+     80000   139.66983      10.178614     -225024.34     -6.4637246     -42235.783     -3.3370275    
+     82000   143.21998      10.585529     -225044.81      1.2196133     -40912.159      2.5998714    
+     84000   146.57456      10.456484     -225060.02     -1.7915833     -39387.77       2.9280402    
+     86000   150.28888      10.109426     -225077.68     -3.0290805     -37726.177      1.7228271    
+     88000   153.6002       10.357881     -225080.84     -5.0702583     -36709.664      6.3987784    
+     90000   156.92114      10.173657     -225080.82     -6.3755495     -36959.272     -1.0524066    
+     92000   160.55778      10.358684     -225092.28     -2.7922247     -36612.747     -0.10663391   
+     94000   163.90693      10.168911     -225102.37     -2.0784534     -35249.549      0.48738297   
+     96000   167.59218      9.7385919     -225096.15     -1.5329364     -35929.23       1.0195393    
+     98000   170.94976      10.068272     -225086.28     -2.5128724     -38006.475      2.5395635    
+    100000   174.26488      10.129035     -225072.29     -0.91400946    -38940.827      0.68111611   
+Loop time of 174.529 on 2 procs for 100000 steps with 29805 atoms
+
+Performance: 49.505 ns/day, 0.485 hours/ns, 572.970 timesteps/s, 17.077 Matom-step/s
+95.6% CPU use with 2 MPI tasks x 1 OpenMP threads
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 105.51     | 107.39     | 109.27     |  18.1 | 61.53
+Neigh   | 0.025612   | 0.026115   | 0.026618   |   0.3 |  0.01
+Comm    | 17.141     | 17.199     | 17.257     |   1.4 |  9.85
+Output  | 3.024      | 4.188      | 5.3519     |  56.9 |  2.40
+Modify  | 37.068     | 39.958     | 42.848     |  45.7 | 22.89
+Other   |            | 5.768      |            |       |  3.30
+
+Nlocal:        14902.5 ave       14922 max       14883 min
+Histogram: 1 0 0 0 0 0 0 0 0 1
+Nghost:        25450.5 ave       25484 max       25417 min
+Histogram: 1 0 0 0 0 0 0 0 0 1
+Neighs:              0 ave           0 max           0 min
+Histogram: 2 0 0 0 0 0 0 0 0 0
+
+Total # of neighbors = 0
+Ave neighs/atom = 0
+Neighbor list builds = 788
+Dangerous builds = 0
+Total wall time: 0:03:13
